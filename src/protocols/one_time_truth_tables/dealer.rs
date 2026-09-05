@@ -8,8 +8,8 @@ const SIZE: usize = 1<<N;
 type BitMatrix = [[bool; SIZE]; SIZE];
 
 pub(crate) struct Dealer{
-    alice_pairs: Vec<(usize, BitMatrix)>, 
-    bob_pairs: Vec<(usize, BitMatrix)>,
+    alice_pairs: Vec<(u8, BitMatrix)>, 
+    bob_pairs: Vec<(u8, BitMatrix)>,
 }
 
 impl Dealer{
@@ -27,31 +27,31 @@ impl Dealer{
         Self {alice_pairs, bob_pairs}
     }
 
-    fn gen_correlated_randomness<R: Rng>(rng: &mut R) -> ((usize, BitMatrix), (usize, BitMatrix)){
-          let sample_rand_bit_matrix = |rng: &mut R| -> BitMatrix {
+    fn gen_correlated_randomness<R: Rng>(rng: &mut R) -> ((u8, BitMatrix), (u8, BitMatrix)){
+        let sample_rand_bit_matrix = |rng: &mut R| -> BitMatrix {
             std::array::from_fn(|_| {
             std::array::from_fn(|_| rng.random_bool(0.5))
         })};
 
-        let s: usize = rng.random_range(0..SIZE); 
-        let r: usize = rng.random_range(0..SIZE);
+        let s: u8 = rng.random_range(0..SIZE as u8); 
+        let r: u8 = rng.random_range(0..SIZE as u8);
 
         let bob_matrix: BitMatrix = sample_rand_bit_matrix(rng);
 
         let alice_matrix: BitMatrix = std::array::from_fn(|i|{
             std::array::from_fn(|j|{
-                let row = (i + SIZE - r) % SIZE; 
-                let col = (j + SIZE - s) % SIZE; 
+                let row = (i + SIZE - r as usize) % SIZE; 
+                let col = (j + SIZE - s as usize) % SIZE; 
 
                 bob_matrix[i][j] ^ TABLE[row][col]
             })
         }); 
         ((r, alice_matrix), (s, bob_matrix))
     }
-    pub(crate) fn query_alice(&mut self) -> Option<(usize, BitMatrix)>{
+    pub(crate) fn query_alice(&mut self) -> Option<(u8, BitMatrix)>{
         self.alice_pairs.pop() 
     }
-    pub(crate) fn query_bob(&mut self) -> Option<(usize, BitMatrix)>{
+    pub(crate) fn query_bob(&mut self) -> Option<(u8, BitMatrix)>{
         self.bob_pairs.pop()
     }
 }
