@@ -1,6 +1,6 @@
-use crate::encoding::{BloodType, encode};
+use crate::core::encoding::{BloodType, encode};
 
-const TABLE: [[bool; 8]; 8] = [
+pub const TABLE: [[bool; 8]; 8] = [
     [true,  false, false, false, false, false, false, false], 
     [true,  true,  false, false, false, false, false, false], 
     [true,  false, true,  false, false, false, false, false], 
