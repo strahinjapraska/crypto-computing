@@ -149,19 +149,19 @@ impl Round3 {
     }
 }
 
-pub(crate) struct OtttProtocol {
+pub struct OtttProtocol {
     pub dealer: Dealer,
 }
 
 impl OtttProtocol {
-    pub(crate) fn new<R: Rng>(rng: &mut R) -> Self {
+    pub fn new<R: Rng>(rng: &mut R) -> Self {
         let dealer = dealer::Dealer::new(rng);
         Self {
             dealer
         }
     }
 
-    fn run_protocol(&mut self, alice_input: usize, bob_input: usize) -> bool {
+    pub fn run_protocol(&mut self, alice_input: usize, bob_input: usize) -> bool {
         let alice_pair = self.dealer.query_alice().expect("alice");
         let bob_pair = self.dealer.query_bob().expect("bob");
 
