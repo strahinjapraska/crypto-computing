@@ -24,13 +24,7 @@ pub fn circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
     && (!d.rh || r.rh)
 }
 
-#[cfg(test)]
-mod tests {
-use super::*;
-
-    #[test]
-    fn test_compatibility() {
-        let types = [
+pub const BLOOD_TYPES: [BloodType; 8] = [
             BloodType::ONeg,
             BloodType::OPos,
             BloodType::ANeg,
@@ -40,8 +34,15 @@ use super::*;
             BloodType::ABNeg,
             BloodType::ABPos,
         ];
-        types.iter().for_each(|donor| {
-            types.iter().for_each(|recipient| {
+
+#[cfg(test)]
+mod tests {
+use super::*;
+
+    #[test]
+    fn test_compatibility() {
+        BLOOD_TYPES.iter().for_each(|donor| {
+            BLOOD_TYPES.iter().for_each(|recipient| {
                 let table_result = look_up_table_compatibility(*donor, *recipient);
                 let circuit_result = circuit_compatiblity(*donor, *recipient);
                 assert_eq!(table_result, circuit_result, "mismatch for donor: {:?}, recipient: {:?}", donor, recipient);

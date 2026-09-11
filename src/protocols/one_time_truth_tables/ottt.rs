@@ -1,4 +1,6 @@
-use crate::protocols::one_time_truth_tables::dealer::{Dealer, SIZE};
+use rand::{Rng};
+
+use crate::protocols::one_time_truth_tables::{dealer::{self, Dealer, SIZE}, ottt::Role::{Alice, Bob}};
 use std::{fmt::Error, io::ErrorKind::OutOfMemory};
 
 type BitMatrix = [[bool; SIZE]; SIZE];
@@ -63,7 +65,7 @@ impl Round1 {
     pub fn proceed(self, msg: Option<Round1Msg>) -> Result<(Round2, Option<Round2Msg>), Error> {
         match self.role {
             Role::Alice => {
-                let u = (self.input + self.shift) % (2 << SIZE);
+                let u = (self.input + self.shift) %  SIZE;
                 return Ok((
                     Round2 {
                         role: self.role,
@@ -111,7 +113,7 @@ impl Round2 {
             Role::Bob => {
                 let msgu = msg.unwrap();
                 self.u = msgu.u;
-                let v = (self.input + self.shift) % (2 << SIZE);
+                let v = (self.input + self.shift) % SIZE;
                 let z_b = self.matrix[self.u as usize][v as usize];
 
                 return Ok((
@@ -147,35 +149,54 @@ impl Round3 {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::protocols::one_time_truth_tables::{
-        dealer,
-        ottt::{
-            Role::{Alice, Bob},
-            Round1,
-        },
-    };
+pub(crate) struct OtttProtocol {
+    pub dealer: Dealer,
+}
 
-    #[test]
-    pub fn test_ottt() {
-        let mut rng = rand::rng();
-        let mut dealer = dealer::Dealer::new(&mut rng);
-        let alice_pair = dealer.query_alice().expect("alice");
-        let bob_pair = dealer.query_bob().expect("bob");
-        let alice_input = 3;
-        let bob_input = 1;
+impl OtttProtocol {
+    pub(crate) fn new<R: Rng>(rng: &mut R) -> Self {
+        let dealer = dealer::Dealer::new(rng);
+        Self {
+            dealer
+        }
+    }
 
-        let (a1, a_msg1) = Round1::new(Alice, alice_input, alice_pair.0 as usize, alice_pair.1);
-        let (b1, b_msg1) = Round1::new(Bob, bob_input, bob_pair.0 as usize, bob_pair.1);
+    fn run_protocol(&mut self, alice_input: usize, bob_input: usize) -> bool {
+        let alice_pair = self.dealer.query_alice().expect("alice");
+        let bob_pair = self.dealer.query_bob().expect("bob");
+
+        let (a1, _a_msg1) = Round1::new(Alice, alice_input, alice_pair.0 as usize, alice_pair.1);
+        let (b1, _b_msg1) = Round1::new(Bob, bob_input, bob_pair.0 as usize, bob_pair.1);
 
         let (a2, a_msg2) = a1.proceed(None).unwrap();
         let (b2, b_msg2) = b1.proceed(None).unwrap();
 
-        let (a3, a_msg3) = a2.proceed(b_msg2).unwrap();
-        let (b3, b_msg3) = b2.proceed(a_msg2).unwrap();
+        let (a3, _a_msg3) = a2.proceed(b_msg2).unwrap();
+        let (_b3, b_msg3) = b2.proceed(a_msg2).unwrap();
 
         let a_result = a3.proceed(b_msg3).unwrap();
-        let b_result = b3.proceed(a_msg3).unwrap();
+        // let b_result = b3.proceed(a_msg3).unwrap();
+        return a_result;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{core::functionality::{BLOOD_TYPES, look_up_table_compatibility}, protocols::one_time_truth_tables::ottt::OtttProtocol};
+
+    #[test]
+    pub fn test_ottt() {
+        let mut rng = rand::rng();
+        let mut ottt_protocol = OtttProtocol::new(&mut rng);
+        BLOOD_TYPES.iter().for_each(|recipient| {
+            BLOOD_TYPES.iter().for_each(|donor| {
+                let table_result = look_up_table_compatibility(*donor, *recipient);
+
+                let alice_input = *recipient as usize;
+                let bob_input = *donor as usize;
+                let ottp_protocol_result = ottt_protocol.run_protocol(alice_input, bob_input);
+                assert_eq!(table_result, ottp_protocol_result, "mismatch for donor: {:?}, recipient: {:?}", donor, recipient);
+            });
+        });
     }
 }
