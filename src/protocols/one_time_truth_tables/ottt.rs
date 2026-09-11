@@ -1,15 +1,10 @@
 use rand::{Rng};
 
-use crate::protocols::one_time_truth_tables::{dealer::{self, Dealer, SIZE}, ottt::Role::{Alice, Bob}};
+use crate::protocols::{common::Role, one_time_truth_tables::{dealer::{self, Dealer, SIZE}, ottt::Role::{Alice, Bob}}};
 use std::{fmt::Error, io::ErrorKind::OutOfMemory};
 
 type BitMatrix = [[bool; SIZE]; SIZE];
 
-#[derive(Clone, Copy)]
-pub(crate) enum Role {
-    Alice = 0,
-    Bob = 1,
-}
 
 pub struct Round1Msg {
     pub u: usize,
