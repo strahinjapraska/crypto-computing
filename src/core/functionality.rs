@@ -24,6 +24,14 @@ pub fn circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
     && (!d.rh || r.rh)
 }
 
+pub fn arithmetic_circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
+    let d = encode(donor);
+    let r = encode(recipient);
+
+    (true ^ d.a ^ (d.a && r.a)) 
+    && (true ^ d.b ^ (d.b && r.b)) 
+    && (true ^ d.rh ^ (d.rh && r.rh))
+}
 pub const BLOOD_TYPES: [BloodType; 8] = [
             BloodType::ONeg,
             BloodType::OPos,
@@ -43,7 +51,7 @@ use super::*;
     fn test_compatibility() {
         BLOOD_TYPES.iter().for_each(|donor| {
             BLOOD_TYPES.iter().for_each(|recipient| {
-                let table_result = look_up_table_compatibility(*donor, *recipient);
+                let table_result = arithmetic_circuit_compatiblity(*donor, *recipient);
                 let circuit_result = circuit_compatiblity(*donor, *recipient);
                 assert_eq!(table_result, circuit_result, "mismatch for donor: {:?}, recipient: {:?}", donor, recipient);
             });
