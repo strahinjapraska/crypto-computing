@@ -1,7 +1,7 @@
 use crate::protocols::bedoza::expressions::ExpressionTypes::XORWithConstant;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionTypes {
     XORWithConstant,
     ANDWithConstant,
@@ -28,6 +28,13 @@ pub enum VariableNames {
     RH_NEG,
     A_B_AND,
     A_B_RH_AND,
+    // variables for ANDWithTwoWires subprotocol
+    TEMP_U,
+    TEMP_V,
+    TEMP_W,
+    TEMP_D,
+    TEMP_E,
+    TEMP_Z
 }
 
 #[derive(Debug, Clone)]
@@ -145,7 +152,7 @@ pub fn get_blood_compatibility_expressions() -> [Expression; 11] {
             constant: None,
         },
         Expression {
-            expression_type: ExpressionTypes::XORWithConstant,
+            expression_type: ExpressionTypes::ANDWithTwoWires,
             output_variable_name: VariableNames::A_B_RH_AND,
             first_input_variable_name: VariableNames::A_B_AND,
             second_input_variable_name: Some(VariableNames::RH_NEG),
@@ -153,3 +160,5 @@ pub fn get_blood_compatibility_expressions() -> [Expression; 11] {
         },
     ]
 }
+
+

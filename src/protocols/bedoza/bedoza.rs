@@ -5,10 +5,9 @@ use std::{
 
 use rand::{Rng, RngExt, rngs::ThreadRng};
 
-use crate::protocols::{
-    bedoza::expressions::{Expression, ExpressionTypes, VariableNames},
-    common::Role,
-};
+use crate::{core::encoding::{BloodType, encode}, protocols::{
+    bedoza::{dealer::Dealer, expressions::{Expression, ExpressionTypes::{self, XORWithConstant, XORWithTwoWires}, VariableNames::{self, TEMP_W}}}, common::Role,
+}};
 
 pub struct Channel {
     pub incoming: Receiver<bool>,
@@ -23,15 +22,17 @@ impl Channel {
     }
 }
 
-pub struct Party {
+// state to temporarily store the shares required to perform the Multiplication subprotocol
+
+pub struct Party<R: Rng> {
     pub role: Role,
     pub channel: Channel,
     pub state: HashMap<VariableNames, bool>,
-    pub rng: ThreadRng
+    pub rng: R
 }
 
-impl Party {
-    pub fn new(role: Role, channel: Channel, rng: ThreadRng) -> Self {
+impl<R: Rng> Party<R> {
+    pub fn new(role: Role, channel: Channel, rng: R) -> Self {
         return Self {
             role,
             channel,
@@ -39,6 +40,11 @@ impl Party {
             rng
         };
     }
+
+    pub fn set_value(&mut self, store_in_variable: VariableNames, value: bool) {
+        self.state.insert(store_in_variable, value);
+    }
+
     pub fn share_input(
         &mut self,
         store_in_variable: VariableNames,
@@ -139,46 +145,140 @@ impl Party {
     }
 }
 
-pub struct BeDOZaProtocol {
+pub struct BeDOZaProtocol<R: Rng> {
     expression_list: Vec<Expression>,
+    dealer: Dealer<R>
 }
 
-impl BeDOZaProtocol {
-    pub fn new(expression_list: Vec<Expression>) -> Self {
-        Self { expression_list }
+impl<R: Rng> BeDOZaProtocol<R> {
+    pub fn new(expression_list: Vec<Expression>, rng: R) -> Self {
+        Self { 
+            expression_list, 
+            dealer: Dealer::new(rng),
+        }
     }
 
-    pub fn run_protocol(&mut self, alice_input: bool, bob_input: bool) -> bool {
-        let mut alice_rng = rand::rng();
-        let mut bob_rng = rand::rng();
+    pub fn run_AndWithTwoWires_subprotocol(&mut self, expression: Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
+        // 1. The dealer outputs a random triple [u], [v], [w] with w = u * v
+                let (alice_shares, bob_shares) = self.dealer.query();
+                
+                // init the temporary shares of variables
+                alice.set_value(VariableNames::TEMP_U, alice_shares.0);
+                bob.set_value(VariableNames::TEMP_U, bob_shares.0);
+                alice.set_value(VariableNames::TEMP_V, alice_shares.1);
+                bob.set_value(VariableNames::TEMP_V, bob_shares.1);
+                alice.set_value(VariableNames::TEMP_W, alice_shares.2);
+                bob.set_value(VariableNames::TEMP_W, bob_shares.2);
 
-        let (a_outgoing, a_incoming) = channel();
-        let (b_outgoing, b_incoming) = channel();
+                // 2. Run subprotocol: [d] = [x] + [u]
+                self.dispatch_evaluate_expression(Expression { 
+                    expression_type: ExpressionTypes::XORWithTwoWires, 
+                    output_variable_name: VariableNames::TEMP_D, 
+                    first_input_variable_name: expression.first_input_variable_name, 
+                    second_input_variable_name: Some(VariableNames::TEMP_U), 
+                    constant: None 
+                }, alice, bob);
+                
+                // 3. Run subprotocol: [e] = [y] + [v]
+                self.dispatch_evaluate_expression(Expression { 
+                    expression_type: ExpressionTypes::XORWithTwoWires, 
+                    output_variable_name: VariableNames::TEMP_E, 
+                    first_input_variable_name: expression.second_input_variable_name.unwrap(), 
+                    second_input_variable_name: Some(VariableNames::TEMP_V), 
+                    constant: None 
+                }, alice, bob);
 
-        let mut alice = Party::new(
-            Role::Alice,
-            Channel {
-                incoming: a_incoming,
-                outgoing: b_outgoing,
-            },
-            alice_rng
-        );
-        let mut bob = Party::new(
-            Role::Bob,
-            Channel {
-                incoming: b_incoming,
-                outgoing: a_outgoing,
-            },
-            bob_rng
-        );
+                // 4. Run subprotocol: d <- Open([d])
+                let _ = bob.reconstruct_output(VariableNames::TEMP_D);
+                let d = alice.reconstruct_output(VariableNames::TEMP_D);
+                
+                // 5. Run subprotocol: e <- Open([e])
+                let _ = bob.reconstruct_output(VariableNames::TEMP_E);
+                let e = alice.reconstruct_output(VariableNames::TEMP_E);
+                
+                // 6. Run subprotocol: [z] = [w] + e * [x] + d * [y] + e * d
+                //// 6.1. [e] := e * [x]
+                self.dispatch_evaluate_expression(Expression { 
+                    expression_type: ExpressionTypes::ANDWithConstant, 
+                    output_variable_name: VariableNames::TEMP_E, 
+                    first_input_variable_name: expression.first_input_variable_name, 
+                    second_input_variable_name: None, 
+                    constant: e
+                }, alice, bob);
 
-        alice.share_input(VariableNames::DONOR_A, Some(alice_input));
+                //// 6.2. [d] := d * [y]
+                self.dispatch_evaluate_expression(Expression { 
+                    expression_type: ExpressionTypes::ANDWithConstant, 
+                    output_variable_name: VariableNames::TEMP_D, 
+                    first_input_variable_name: expression.second_input_variable_name.unwrap(), 
+                    second_input_variable_name: None, 
+                    constant: d
+                }, alice, bob);
+                
+                //// 6.3. [w] := [w] + [e]
+                self.dispatch_evaluate_expression(Expression { 
+                    expression_type: ExpressionTypes::XORWithTwoWires, 
+                    output_variable_name: VariableNames::TEMP_W, 
+                    first_input_variable_name: VariableNames::TEMP_W, 
+                    second_input_variable_name: Some(VariableNames::TEMP_E), 
+                    constant: None
+                }, alice, bob);
+
+                //// 6.4. [w] = [w] + [d]
+                self.dispatch_evaluate_expression(Expression { 
+                    expression_type: XORWithTwoWires, 
+                    output_variable_name: VariableNames::TEMP_W, 
+                    first_input_variable_name: TEMP_W, 
+                    second_input_variable_name: Some(VariableNames::TEMP_D), 
+                    constant: None }, 
+                    alice, bob);
+
+                //// 6.5. [z] = [w] + e * d
+                self.dispatch_evaluate_expression(
+                    Expression { expression_type: XORWithConstant, 
+                        output_variable_name: expression.output_variable_name, 
+                        first_input_variable_name: TEMP_W, 
+                        second_input_variable_name: None, 
+                        constant: Some(e.unwrap() && d.unwrap()) }, alice, bob);
+
+    }
+
+    pub fn parse_and_share_initial_input(alice_blood_type: BloodType, bob_blood_type: BloodType, alice: &mut Party<R>, bob: &mut Party<R>) {
+        let alice_input = encode(alice_blood_type);
+        let bob_input = encode(bob_blood_type);
+        alice.share_input(VariableNames::DONOR_A, Some(alice_input.a));
         // force Bob to receive the share from Alice
         bob.share_input(VariableNames::DONOR_A, None);
 
-        bob.share_input(VariableNames::RECIPIENT_A, Some(bob_input));
+        bob.share_input(VariableNames::RECIPIENT_A, Some(bob_input.a));
         // force Alice to receive the share from Bob
         alice.share_input(VariableNames::RECIPIENT_A, None);
+
+        alice.share_input(VariableNames::DONOR_B, Some(alice_input.b));
+        // force Bob to receive the share from Alice
+        bob.share_input(VariableNames::DONOR_B, None);
+
+        bob.share_input(VariableNames::RECIPIENT_B, Some(bob_input.b));
+        // force Alice to receive the share from Bob
+        alice.share_input(VariableNames::RECIPIENT_B, None);
+
+        alice.share_input(VariableNames::DONOR_RH, Some(alice_input.rh));
+        // force Bob to receive the share from Alice
+        bob.share_input(VariableNames::DONOR_RH, None);
+
+        bob.share_input(VariableNames::RECIPIENT_RH, Some(bob_input.rh));
+        // force Alice to receive the share from Bob
+        alice.share_input(VariableNames::RECIPIENT_RH, None);
+    }
+
+    pub fn dispatch_evaluate_expression(&self, expression: Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
+        alice.evaluate_expression(expression.clone());
+        bob.evaluate_expression(expression.clone());
+    }
+
+    pub fn run_protocol(&mut self, alice_blood_type: BloodType, bob_blood_type: BloodType, alice: &mut Party<R>, bob: &mut Party<R>) -> bool {
+        
+        Self::parse_and_share_initial_input(alice_blood_type, bob_blood_type, alice, bob);
 
         println!("{:=>60}", "");
 
@@ -187,13 +287,17 @@ impl BeDOZaProtocol {
         println!("Bob state: {:?}", bob.state);
         println!("{:=>60}", "");
 
-        self.expression_list.iter().for_each(|expression| {
-            alice.evaluate_expression(expression.clone());
-            bob.evaluate_expression(expression.clone());
-            println!("{:?}", expression);
-            println!("Alice state: {:?}", alice.state);
-            println!("Bob state: {:?}", bob.state);
-            println!("{:=>60}", "");
+        self.expression_list.clone().iter().for_each(|expression| {
+            if expression.expression_type == ExpressionTypes::ANDWithTwoWires {
+                self.run_AndWithTwoWires_subprotocol(expression.clone(), alice, bob);
+            } else {
+                self.dispatch_evaluate_expression(expression.clone(), alice, bob);
+
+                println!("{:?}", expression);
+                println!("Alice state: {:?}", alice.state);
+                println!("Bob state: {:?}", bob.state);
+                println!("{:=>60}", "");
+            }
         });
 
         let last_updated_variable = self.expression_list.last().unwrap().output_variable_name;
@@ -205,20 +309,53 @@ impl BeDOZaProtocol {
     }
 }
 
+pub fn setup_parties() -> (Party<ThreadRng>, Party<ThreadRng>) {
+    let alice_rng = rand::rng();
+        let bob_rng = rand::rng();
+
+        let (a_outgoing, a_incoming) = channel();
+        let (b_outgoing, b_incoming) = channel();
+
+        let alice = Party::new(
+            Role::Alice,
+            Channel {
+                incoming: a_incoming,
+                outgoing: b_outgoing,
+            },
+            alice_rng
+        );
+        let bob = Party::new(
+            Role::Bob,
+            Channel {
+                incoming: b_incoming,
+                outgoing: a_outgoing,
+            },
+            bob_rng
+        );
+        return (alice, bob);
+}
+
 #[cfg(test)]
 mod test {
-    use crate::protocols::bedoza::expressions::get_local_running_expressions;
+    use crate::{core::functionality::{BLOOD_TYPES, circuit_compatiblity}, protocols::{bedoza::{bedoza::setup_parties, expressions::{get_blood_compatibility_expressions, get_local_running_expressions}}}};
 
     #[test]
     fn test_bedoza_protocol() {
-        //what it does: (d.a + d.b) * 1 + 1
-        let mut protocol = super::BeDOZaProtocol::new(get_local_running_expressions().to_vec());
+        let rng = rand::rng();
+        
 
-        let test_cases = [(false, false), (false, true), (true, false), (true, true)];
+        let mut protocol = super::BeDOZaProtocol::new(
+            get_blood_compatibility_expressions().to_vec(), 
+            rng);
 
-        for (alice_input, bob_input) in test_cases {
-            let z = protocol.run_protocol(alice_input, bob_input);
-            assert_eq!(z, alice_input ^ bob_input ^ true,);
-        }
+        BLOOD_TYPES.iter().for_each(|alice_blood_type| {
+            BLOOD_TYPES.iter().for_each(|bob_blood_type| {
+                let (mut alice, mut bob) = setup_parties();
+                let z = protocol.run_protocol(*alice_blood_type, *bob_blood_type, &mut alice, &mut bob);
+
+                let circuit_result = circuit_compatiblity(*alice_blood_type, *bob_blood_type);
+                assert_eq!(z, circuit_result, "mismatch for donor: {:?}, recipient: {:?}", alice_blood_type, bob_blood_type);
+            });
+        });
     }
 }
