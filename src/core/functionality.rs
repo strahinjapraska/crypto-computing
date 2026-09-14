@@ -51,7 +51,7 @@ use super::*;
     fn test_compatibility() {
         BLOOD_TYPES.iter().for_each(|donor| {
             BLOOD_TYPES.iter().for_each(|recipient| {
-                let table_result = arithmetic_circuit_compatiblity(*donor, *recipient);
+                let table_result = look_up_table_compatibility(*donor, *recipient);
                 let circuit_result = circuit_compatiblity(*donor, *recipient);
                 assert_eq!(table_result, circuit_result, "mismatch for donor: {:?}, recipient: {:?}", donor, recipient);
             });
