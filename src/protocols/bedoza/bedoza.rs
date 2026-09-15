@@ -158,7 +158,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
         }
     }
 
-    pub fn run_AndWithTwoWires_subprotocol(&mut self, expression: Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
+    pub fn run_and_with_two_wires_subprotocol(&mut self, expression: &Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
         // 1. The dealer outputs a random triple [u], [v], [w] with w = u * v
                 let (alice_shares, bob_shares) = self.dealer.query();
                 
@@ -243,34 +243,34 @@ impl<R: Rng> BeDOZaProtocol<R> {
 
     }
 
+    fn dispatch_share_input(store_in_variable: VariableNames, input: bool, alice: &mut Party<R>, bob: &mut Party<R>, role: Role) {
+        match role {
+            Role::Alice => {
+                alice.share_input(store_in_variable, Some(input));
+                // force Bob to receive the share from Alice
+                bob.share_input(store_in_variable, None);
+            }
+            Role::Bob => {
+                bob.share_input(store_in_variable, Some(input));
+                // force Alice to receive the share from Bob
+                alice.share_input(store_in_variable, None);
+            }
+        }
+    }
+
     pub fn parse_and_share_initial_input(alice_blood_type: BloodType, bob_blood_type: BloodType, alice: &mut Party<R>, bob: &mut Party<R>) {
         let alice_input = encode(alice_blood_type);
         let bob_input = encode(bob_blood_type);
-        alice.share_input(VariableNames::DONOR_A, Some(alice_input.a));
-        // force Bob to receive the share from Alice
-        bob.share_input(VariableNames::DONOR_A, None);
-
-        bob.share_input(VariableNames::RECIPIENT_A, Some(bob_input.a));
-        // force Alice to receive the share from Bob
-        alice.share_input(VariableNames::RECIPIENT_A, None);
-
-        alice.share_input(VariableNames::DONOR_B, Some(alice_input.b));
-        // force Bob to receive the share from Alice
-        bob.share_input(VariableNames::DONOR_B, None);
-
-        bob.share_input(VariableNames::RECIPIENT_B, Some(bob_input.b));
-        // force Alice to receive the share from Bob
-        alice.share_input(VariableNames::RECIPIENT_B, None);
-
-        alice.share_input(VariableNames::DONOR_RH, Some(alice_input.rh));
-        // force Bob to receive the share from Alice
-        bob.share_input(VariableNames::DONOR_RH, None);
-
-        bob.share_input(VariableNames::RECIPIENT_RH, Some(bob_input.rh));
-        // force Alice to receive the share from Bob
-        alice.share_input(VariableNames::RECIPIENT_RH, None);
+        Self::dispatch_share_input(VariableNames::DONOR_A, alice_input.a, alice, bob, Role::Alice);
+        Self::dispatch_share_input(VariableNames::RECIPIENT_A, bob_input.a, alice, bob, Role::Bob);
+        
+        Self::dispatch_share_input(VariableNames::DONOR_B, alice_input.b, alice, bob, Role::Alice);
+        Self::dispatch_share_input(VariableNames::RECIPIENT_B, bob_input.b, alice, bob, Role::Bob);
+        
+        Self::dispatch_share_input(VariableNames::DONOR_RH, alice_input.rh, alice, bob, Role::Alice);
+        Self::dispatch_share_input(VariableNames::RECIPIENT_RH, bob_input.rh, alice, bob, Role::Bob);
     }
-
+    
     pub fn dispatch_evaluate_expression(&self, expression: Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
         alice.evaluate_expression(expression.clone());
         bob.evaluate_expression(expression.clone());
@@ -289,7 +289,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
 
         self.expression_list.clone().iter().for_each(|expression| {
             if expression.expression_type == ExpressionTypes::ANDWithTwoWires {
-                self.run_AndWithTwoWires_subprotocol(expression.clone(), alice, bob);
+                self.run_and_with_two_wires_subprotocol(expression, alice, bob);
             } else {
                 self.dispatch_evaluate_expression(expression.clone(), alice, bob);
 
