@@ -86,7 +86,7 @@ impl<R: Rng> Party<R> {
         }
     }
 
-    pub fn evaluate_expression(&mut self, expression: Expression) {
+    pub fn evaluate_expression(&mut self, expression: &Expression) {
         match expression.expression_type {
             ExpressionTypes::XORWithConstant => {
                 if expression.constant.is_none() {
@@ -171,7 +171,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
                 bob.set_value(VariableNames::TEMP_W, bob_shares.2);
 
                 // 2. Run subprotocol: [d] = [x] + [u]
-                self.dispatch_evaluate_expression(Expression { 
+                self.dispatch_evaluate_expression(&Expression { 
                     expression_type: ExpressionTypes::XORWithTwoWires, 
                     output_variable_name: VariableNames::TEMP_D, 
                     first_input_variable_name: expression.first_input_variable_name, 
@@ -180,7 +180,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
                 }, alice, bob);
                 
                 // 3. Run subprotocol: [e] = [y] + [v]
-                self.dispatch_evaluate_expression(Expression { 
+                self.dispatch_evaluate_expression(&Expression { 
                     expression_type: ExpressionTypes::XORWithTwoWires, 
                     output_variable_name: VariableNames::TEMP_E, 
                     first_input_variable_name: expression.second_input_variable_name.unwrap(), 
@@ -198,7 +198,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
                 
                 // 6. Run subprotocol: [z] = [w] + e * [x] + d * [y] + e * d
                 //// 6.1. [e] := e * [x]
-                self.dispatch_evaluate_expression(Expression { 
+                self.dispatch_evaluate_expression(&Expression { 
                     expression_type: ExpressionTypes::ANDWithConstant, 
                     output_variable_name: VariableNames::TEMP_E, 
                     first_input_variable_name: expression.first_input_variable_name, 
@@ -207,7 +207,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
                 }, alice, bob);
 
                 //// 6.2. [d] := d * [y]
-                self.dispatch_evaluate_expression(Expression { 
+                self.dispatch_evaluate_expression(&Expression { 
                     expression_type: ExpressionTypes::ANDWithConstant, 
                     output_variable_name: VariableNames::TEMP_D, 
                     first_input_variable_name: expression.second_input_variable_name.unwrap(), 
@@ -216,7 +216,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
                 }, alice, bob);
                 
                 //// 6.3. [w] := [w] + [e]
-                self.dispatch_evaluate_expression(Expression { 
+                self.dispatch_evaluate_expression(&Expression { 
                     expression_type: ExpressionTypes::XORWithTwoWires, 
                     output_variable_name: VariableNames::TEMP_W, 
                     first_input_variable_name: VariableNames::TEMP_W, 
@@ -225,7 +225,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
                 }, alice, bob);
 
                 //// 6.4. [w] = [w] + [d]
-                self.dispatch_evaluate_expression(Expression { 
+                self.dispatch_evaluate_expression(&Expression { 
                     expression_type: XORWithTwoWires, 
                     output_variable_name: VariableNames::TEMP_W, 
                     first_input_variable_name: TEMP_W, 
@@ -235,7 +235,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
 
                 //// 6.5. [z] = [w] + e * d
                 self.dispatch_evaluate_expression(
-                    Expression { expression_type: XORWithConstant, 
+                    &Expression { expression_type: XORWithConstant, 
                         output_variable_name: expression.output_variable_name, 
                         first_input_variable_name: TEMP_W, 
                         second_input_variable_name: None, 
@@ -271,9 +271,9 @@ impl<R: Rng> BeDOZaProtocol<R> {
         Self::dispatch_share_input(VariableNames::RECIPIENT_RH, bob_input.rh, alice, bob, Role::Bob);
     }
     
-    pub fn dispatch_evaluate_expression(&self, expression: Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
-        alice.evaluate_expression(expression.clone());
-        bob.evaluate_expression(expression.clone());
+    pub fn dispatch_evaluate_expression(&self, expression: &Expression, alice: &mut Party<R>, bob: &mut Party<R>) {
+        alice.evaluate_expression(expression);
+        bob.evaluate_expression(expression);
     }
 
     pub fn run_protocol(&mut self, alice_blood_type: BloodType, bob_blood_type: BloodType, alice: &mut Party<R>, bob: &mut Party<R>) -> bool {
@@ -291,7 +291,7 @@ impl<R: Rng> BeDOZaProtocol<R> {
             if expression.expression_type == ExpressionTypes::ANDWithTwoWires {
                 self.run_and_with_two_wires_subprotocol(expression, alice, bob);
             } else {
-                self.dispatch_evaluate_expression(expression.clone(), alice, bob);
+                self.dispatch_evaluate_expression(expression, alice, bob);
 
                 println!("{:?}", expression);
                 println!("Alice state: {:?}", alice.state);
