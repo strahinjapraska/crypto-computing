@@ -24,7 +24,7 @@
 ```
 
 ### Run demo 
-You can also run a demo script for our OTTT implementation for blood compatibility by using 
+You can also run a demo script for different protocols for blood compatibility by using 
 ```bash
 cargo run  
 ```
