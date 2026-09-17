@@ -24,6 +24,14 @@ pub fn circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
     && (!d.rh || r.rh)
 }
 
+pub fn arithmetic_circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
+    let d = encode(donor);
+    let r = encode(recipient);
+
+    (true ^ d.a ^ (d.a && r.a)) 
+    && (true ^ d.b ^ (d.b && r.b)) 
+    && (true ^ d.rh ^ (d.rh && r.rh))
+}
 pub const BLOOD_TYPES: [BloodType; 8] = [
             BloodType::ONeg,
             BloodType::OPos,
