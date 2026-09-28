@@ -26,7 +26,6 @@ pub fn pow_mod(base: &U2048, exponent: &U2048) -> U2048{
 pub fn sample_from_zq() -> U2048{
         let q_nonzero = NonZero::new(Q).expect("q!=0"); 
 
-        // TODO: implement sampling different 
         let alpha = U2048::random_mod_vartime(&mut rand::rng(), &q_nonzero);
 
         alpha 

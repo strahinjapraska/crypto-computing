@@ -4,3 +4,5 @@ p = int(p, 16)
 q = (p-1) // 2 
 
 print(f'{q:X}')
+
+print(p%4)

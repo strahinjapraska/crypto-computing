@@ -1,6 +1,7 @@
 use crypto_bigint::{CtLt, NonZero, U2048, U4096};
+use rand::{RngExt, rng};
 use crate::protocols::oblivious_transfer::oblivious_pke::{common::{mul_mod, pow_mod, sample_from_zq, u2048_to_zp}, params::{GENERATOR, N, P}};
-
+use rand_core::Rng; 
 pub struct PublicKey{
     pub (crate) bytes: [u8; 256]
 }
@@ -49,24 +50,52 @@ impl PublicKey{
 
     }  
 
-    pub fn oblivious_generate(){
-        // TODO: refactor rejection sampling
+    pub fn oblivious_generate() -> PublicKey{
+        let mut r = [0u8; N]; 
+        rand::rng().fill_bytes(&mut r); 
+
+        let s = Self::rejection_sample(&r);  
+
+        let h = mul_mod(&s, &s);  
+
+        PublicKey { bytes: h.to_be_bytes().try_into().unwrap()}
     }
 
-    pub fn inverse_oblivious_generate(){
+    pub fn inverse_oblivious_generate(pk: &PublicKey) -> [u8; N]{
+        let t = U2048::from_be_slice(&pk.bytes); 
+
+        // Square root mod p, we don't use Tonelli-Shanks but 
+        // https://en.wikipedia.org/wiki/Tonelli–Shanks_algorithm 
+        // p = 3 mod 4 method, i.e. s = t^{p-1}/4
+        let exponent = &P.wrapping_add(&U2048::ONE).shr(2);  
+        let s = pow_mod(&t, exponent);  
+
+        let random_bit = rng().random_bool(0.5); 
+        if random_bit{
+            Self::inv_rejection_sample(&s)
+        }
+        else{
+            Self::inv_rejection_sample(&P.wrapping_sub(&s))
+        }
+    }
+
+    fn inv_rejection_sample(s: &U2048) -> [u8; N]{
         unimplemented!()
     }
 
     fn rejection_sample(r: &[u8; N]) -> U2048{
-        
-        let mut buffer = [0u8; 512]; 
-        buffer[240..].copy_from_slice(r); 
 
-        let r_int = U4096::from_be_slice(&buffer); 
+        fn slice_to_u4096(offset: usize, slice: &[u8]) -> U4096{
+            let mut buffer = [0u8; 512]; 
+            buffer[offset..].copy_from_slice(slice); 
 
-        let mut p_buffer = [0u8; 512];
-        p_buffer[256..].copy_from_slice(&P.to_be_bytes());
-        let p_4096 = U4096::from_be_slice(&p_buffer); 
+            let r_int = U4096::from_be_slice(&buffer); 
+            
+            r_int 
+        }
+
+        let r_int = slice_to_u4096(240, r);
+        let p_4096 = slice_to_u4096(256, &P.to_be_bytes());
 
         let p_minus_1 = p_4096.wrapping_sub(&U4096::ONE);
         let p_minus_1_nonzero = NonZero::new(p_minus_1).expect("p-1 !=0");
