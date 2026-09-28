@@ -1,6 +1,6 @@
 use crypto_bigint::U2048;
 
-use crate::protocols::oblivious_transfer::oblivious_pke::{common::{mul_mod, pow_mod, sample_from_zq}, params::{GENERATOR, Q}, public_key::PublicKey};
+use crate::protocols::oblivious_transfer::oblivious_pke::{utils::{mul_mod, pow_mod, sample_from_zq}, params::{GENERATOR, Q}, public_key::PublicKey};
 
 
 pub struct SecretKey{
