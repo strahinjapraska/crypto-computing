@@ -3,7 +3,7 @@ use rand::{RngExt, rng};
 use crate::protocols::oblivious_transfer::oblivious_pke::{utils::{inv_rejection_sample, mul_mod, pow_mod, rejection_sample, sample_from_zq, u2048_to_zp}, params::{GENERATOR, N, P}};
 use rand_core::Rng;
  
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct PublicKey{
     pub (crate) bytes: [u8; 256]
 }
