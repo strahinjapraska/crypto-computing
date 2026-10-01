@@ -1,10 +1,12 @@
+use std::assert_eq;
+
 use crate::protocols::oblivious_transfer::oblivious_pke::{public_key::PublicKey, secret_key::{self, SecretKey}};
 
 
 pub const MAX_NR_MESSAGES: u8 = 10;
 pub const MAX_MESSAGE_LENGTH: u8 = u8::MAX;
 
-pub fn string_to_u8(string: String) -> &[u8] {
+pub fn string_to_u8(string: &String) -> &[u8] {
     return string.as_bytes();
 }
 
@@ -43,14 +45,14 @@ impl Alice {
     return self.public_keys.clone();
   }
 
-  pub fn retrieve(&mut self, cyphertexts: Vec<Vec<u8>>) {
+  pub fn retrieve(&mut self, cyphertexts: Vec<([u8; 256], [u8; 256])>) {
     let correct_cyphertext = cyphertexts.get(self.message_choice as usize);
     match correct_cyphertext {
       None => {
         panic!("Error on retrieving the correct cyphertext");
       }
       Some(c) => {
-        match String::from_utf8(c.to_vec()) {
+        match String::from_utf8(SecretKey::unpad(&self.secret_key.decrypt((&c.0,&c.1)))) {
           Ok(message) => {
             self.learnt_message = Some(message);
           }
@@ -79,21 +81,57 @@ impl Bob {
       messages
     }
   }
-  pub fn transfer(&self, public_keys: Vec<PublicKey>) -> Vec<Vec<u8>> {
-    return Vec::new();
+  pub fn transfer(&self, public_keys: Vec<PublicKey>) -> Vec<([u8; 256], [u8; 256])> {
+    assert_eq!(public_keys.len(), self.messages.len(), "Number of messages and public keys mismatch");
+    let mut ciphertexts = Vec::new();
+    for i in 0..MAX_NR_MESSAGES {
+      ciphertexts.push(public_keys[i as usize].encrypt(&PublicKey::pad(self.messages[i as usize].as_bytes()))); 
+    }
+    ciphertexts
   }
 }
 
-pub struct OTProtocol {
+pub struct OTProtocol<'a> {
+  alice: &'a mut Alice,
+  bob: &'a mut Bob
 }
 
-impl OTProtocol {
-    pub fn runProtocol(alice: &Alice, bob: &bob) {
-      // Choose
-      let public_keys = alice.get_public_keys();
-      // Transfer
-      let cyphertexts = bob.transfer(public_keys);
-      // Retrieve
-      alice.retrieve(cyphertexts);
+impl<'a> OTProtocol<'a> {
+    pub fn new(alice: &'a mut Alice, bob: &'a mut Bob) -> OTProtocol<'a> {
+      OTProtocol {alice, bob}
     }
+
+    pub fn run(&mut self) {
+      // Choose
+      let public_keys = self.alice.get_public_keys();
+      // Transfer
+      let cyphertexts = self.bob.transfer(public_keys);
+      // Retrieve
+      self.alice.retrieve(cyphertexts)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::assert_eq;
+
+use rand::{RngExt, rng};
+
+use crate::protocols::oblivious_transfer::oblivious_transfer::{Alice, Bob, MAX_NR_MESSAGES, OTProtocol};
+
+  #[test]
+  pub fn test_ot() {
+    let mut rng = rng();
+    let mut choice = rng.random_range(0..MAX_NR_MESSAGES);
+    let mut  alice = Alice::new(choice);
+    let messages: Vec<String> = (0..MAX_NR_MESSAGES).map(|i| i.to_string()).collect();
+    let mut bob = Bob::new(messages.clone());
+
+    let mut ot = OTProtocol::new(&mut alice, &mut bob);
+    ot.run();
+    assert_eq!(
+      &alice.learnt_message.unwrap(),
+      messages.get(choice as usize).unwrap()
+    );
+  }
 }
