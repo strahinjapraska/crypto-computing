@@ -46,6 +46,7 @@ impl Alice {
   }
 
   pub fn retrieve(&mut self, cyphertexts: Vec<([u8; 256], [u8; 256])>) {
+    assert_eq!(self.public_keys.len(), cyphertexts.len(), "Number of public keys and number of ciphertext mismatch");
     let correct_cyphertext = cyphertexts.get(self.message_choice as usize);
     match correct_cyphertext {
       None => {
@@ -83,10 +84,7 @@ impl Bob {
   }
   pub fn transfer(&self, public_keys: Vec<PublicKey>) -> Vec<([u8; 256], [u8; 256])> {
     assert_eq!(public_keys.len(), self.messages.len(), "Number of messages and public keys mismatch");
-    let mut ciphertexts = Vec::new();
-    for i in 0..MAX_NR_MESSAGES {
-      ciphertexts.push(public_keys[i as usize].encrypt(&PublicKey::pad(self.messages[i as usize].as_bytes()))); 
-    }
+    let ciphertexts = self.messages.iter().zip(public_keys.iter()).map(|(m,pk)| pk.encrypt(&PublicKey::pad(m.as_bytes()))).collect();
     ciphertexts
   }
 }
