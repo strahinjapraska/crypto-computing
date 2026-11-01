@@ -30,3 +30,11 @@ pub fn encode(blood_type: BloodType) -> EncodedBlood {
     }
 
 }
+
+pub fn to_bits(blood: EncodedBlood) -> Vec<usize> {
+        vec![
+            if blood.a { 1 } else { 0 },
+            if blood.b { 1 } else { 0 },
+            if blood.rh { 1 } else { 0 },
+        ]
+}

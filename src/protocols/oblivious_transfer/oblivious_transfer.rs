@@ -3,7 +3,7 @@ use std::assert_eq;
 use crate::protocols::oblivious_transfer::oblivious_pke::{public_key::PublicKey, secret_key::{self, SecretKey}};
 
 
-pub const MAX_NR_MESSAGES: u8 = 10;
+pub const MAX_NR_MESSAGES: u8 = 2;
 pub const MAX_MESSAGE_LENGTH: u8 = u8::MAX;
 
 pub fn string_to_u8(string: &String) -> &[u8] {

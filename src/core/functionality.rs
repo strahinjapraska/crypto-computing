@@ -24,6 +24,17 @@ pub fn circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
     && (!d.rh || r.rh)
 }
 
+pub fn circuit_compatiblity_usize(donor: BloodType, recipient: BloodType) -> usize {
+        let d = encode(donor);
+        let r = encode(recipient);
+        
+        let a_ok = !d.a || r.a;
+        let b_ok = !d.b || r.b;
+        let rh_ok = !d.rh || r.rh;
+        
+        if a_ok && b_ok && rh_ok { 1 } else { 0 }
+}
+
 pub fn arithmetic_circuit_compatiblity(donor: BloodType, recipient: BloodType) -> bool{
     let d = encode(donor);
     let r = encode(recipient);
