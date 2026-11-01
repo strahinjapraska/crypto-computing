@@ -1,2 +1,2 @@
 pub mod oblivious_pke;
-mod oblivious_transfer; 
+pub mod oblivious_transfer; 
