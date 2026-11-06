@@ -24,7 +24,7 @@
     let bob_input = [1];
 
     let mut alice = Evaluator::new(alice_input);
-    let mut bob = Garbler::new(&logic, bob_input);
+    let mut bob = Garbler::new(&boolean_circuit, bob_input);
 
     let mut protocol = YaoProtocol::new(&mut alice, &mut bob);
     protocol.run();
