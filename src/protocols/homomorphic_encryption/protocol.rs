@@ -105,7 +105,7 @@ impl<R: Rng> Alice<R> {
 }
 
 pub fn setup_parties() -> (Alice<ThreadRng>, Bob) {
-    let key_pair = generate_key_pair(1024, 200, 20, 20, 1);
+    let key_pair = generate_key_pair(1024, 20000, 20, 2000, 1000);
 
     let fhe = FHEncryption::new(key_pair.public_key, Some(key_pair.secret_key), rand::rng());
     let (a_outgoing, a_incoming) = channel();
