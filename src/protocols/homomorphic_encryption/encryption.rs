@@ -4,7 +4,7 @@ use crypto_bigint::RandomBits;
 use num_bigint::BigUint;
 
 use rand::{Rng, seq::SliceRandom};
-use rsa::{BoxedUint, PrivateKey, traits::PrivateKeyParts};
+use rsa::{BoxedUint, PrivateKey, pkcs1::RsaPrivateKey, traits::PrivateKeyParts};
 
 
 pub struct EncryptedEncodedBlood {
@@ -69,6 +69,7 @@ impl FheKeyPair {
 
 pub fn generate_key_pair(p_size: usize, q_size: usize, r_size: usize, n: usize, subset_size: usize) -> FheKeyPair {
     let mut rng = rand::rng();
+    // use rsa library to generate the rsa primes and just take the first one
     let secret_key = boxed_uint_to_big_uint(
         &PrivateKey::new(&mut rng, p_size).unwrap().primes()[0]
             .clone()
@@ -122,16 +123,11 @@ impl<R:Rng> FHEncryption<R> {
 
 mod tests {
 
-use rand::rngs::ThreadRng;
 
 use super::*;
     #[test]
     fn test_prime() {
-        let mut key_pair = generate_key_pair(2000, 20000, 6, 20, 10);
-        println!("{}", key_pair.secret_key);
-        for i in 1..10 {
-            println!("{}", key_pair.public_key.get(i));
-        }
+        let key_pair = generate_key_pair(1024, 20000, 6, 20, 10);
         let mut fhe = FHEncryption::new(key_pair.public_key, Some(key_pair.secret_key), rand::rng());
         for i in 0..1 {
           let c = fhe.encrypt(i == 1);

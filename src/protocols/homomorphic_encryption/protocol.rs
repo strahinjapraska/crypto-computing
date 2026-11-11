@@ -105,7 +105,7 @@ impl<R: Rng> Alice<R> {
 }
 
 pub fn setup_parties() -> (Alice<ThreadRng>, Bob) {
-    let key_pair = generate_key_pair(1024, 20000, 20, 2000, 1000);
+    let key_pair = generate_key_pair(1024, 2048, 32, 128, 16);
 
     let fhe = FHEncryption::new(key_pair.public_key, Some(key_pair.secret_key), rand::rng());
     let (a_outgoing, a_incoming) = channel();
@@ -128,7 +128,6 @@ mod tests {
 
     use crate::{
         core::functionality::{BLOOD_TYPES, circuit_compatiblity},
-        protocols::homomorphic_encryption::encryption::generate_key_pair,
     };
 
     use super::*;
