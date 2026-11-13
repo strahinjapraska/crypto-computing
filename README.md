@@ -31,6 +31,44 @@
 
     assert_eq(alice.z.unwrap(), 1); 
 ```
+### d-Homomorphic Encryption
+Usage examples can be seen in `src/main.ts`, and in the test function in 
+`src/protocols/homomorphic_encryption/protocol.rs`. The general usage of it
+looks like this:
+```rust
+// generate a reasonably-sized key pair
+let key_pair = generate_key_pair(1024, 2048, 32, 128, 16);
+// initialize FHEencryption. This will be part of the party that encrypts the 
+// input and decrypts the result (Alice)
+let fhe = FHEncryption::new(key_pair.public_key, Some(key_pair.secret_key), rand::rng());
+// setup the parties and their communication
+let (a_outgoing, a_incoming) = channel();
+let (b_outgoing, b_incoming) = channel();
+
+let alice = Alice::new(
+    Channel {
+        incoming: a_incoming,
+        outgoing: b_outgoing,
+    },
+    fhe,
+);
+let bob = Bob::new(Channel {
+    incoming: b_incoming,
+    outgoing: a_outgoing,
+});
+// set up the input
+alice.set_blood_type(BloodType::ONeg);
+bob.set_blood_type(BloodType::OPos);
+// perform the communication
+alice.send_encrypted_blood_bits();
+// Bob evaluates the function with the encrypted bits from Alice
+bob.eval();
+// Alice recieves the encrypted result of eval, decrypts it and returns it.
+let result = alice.yield_result();
+assert_eq(result, true); 
+```
+Details about the chosen security parameters are discussed in 
+`src/protocols/homomorphic_encryption/README.md`.
 ### Run demo 
 You can also run the tests for OT by using
 ```bash

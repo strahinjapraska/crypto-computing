@@ -1,7 +1,8 @@
 use crypto_computing::core::encoding::BloodType;
 use crypto_computing::core::functionality::look_up_table_compatibility;
-use crypto_computing::protocols::bedoza::bedoza::{BeDOZaProtocol, setup_parties};
+use crypto_computing::protocols::bedoza::bedoza::{self, BeDOZaProtocol};
 use crypto_computing::protocols::bedoza::expressions::get_blood_compatibility_expressions;
+use crypto_computing::protocols::homomorphic_encryption;
 use crypto_computing::protocols::one_time_truth_tables::ottt::OtttProtocol;
 
 use dialoguer::Select;
@@ -28,7 +29,7 @@ fn run_protocol(donor: BloodType, recipient: BloodType){
 }
 
 fn select_protocol() -> String{
-    let options = &["One-Time Truth Tables (OTTT)", "BeDoZa"]; 
+    let options = &["One-Time Truth Tables (OTTT)", "BeDoZa", "Fully Homomorphic Encryption"]; 
     let selected_index = Select::new()
         .with_prompt("Select a protocol")
         .items(options)
@@ -67,8 +68,16 @@ fn main() {
         "BeDoZa" => {
             let rng = rand::rng();
             let mut protocol = BeDOZaProtocol::new(get_blood_compatibility_expressions().to_vec(), rng); 
-            let (mut alice, mut bob) = setup_parties();
+            let (mut alice, mut bob) = bedoza::setup_parties();
             protocol.run_protocol(alice_input, bob_input, &mut alice, &mut bob)
+        },
+        "Fully Homomorphic Encryption" => {
+            let (mut alice, mut bob) = homomorphic_encryption::protocol::setup_parties();
+                alice.set_blood_type(alice_input);
+                bob.set_blood_type(bob_input);
+                alice.send_encrypted_blood_bits();
+                bob.eval();
+                alice.yield_result()
         }
         ,
         _ => unreachable!(),

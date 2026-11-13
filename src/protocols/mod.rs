@@ -3,3 +3,4 @@ pub mod bedoza;
 pub mod oblivious_transfer; 
 pub(crate) mod common; 
 pub mod garbled_circuits;
+pub mod homomorphic_encryption;
